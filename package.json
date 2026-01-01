@@ -4,7 +4,7 @@
 	"description": "Deploy local MCP servers to Smithery as remote SHTTP servers - available as CLI and MCP server",
 	"type": "module",
 	"main": "./dist/index.js",
-	"module": "./src/main.ts",
+	"module": "./src/server.ts",
 	"bin": {
 		"smithery-deploy": "./dist/cli.js"
 	},
