@@ -2,8 +2,10 @@
  * Smithery Deploy Tool
  *
  * Programmatic API for converting local MCP servers to remote SHTTP servers on Smithery.
+ * Also available as an MCP server itself.
  */
 
+// Core API exports
 export { detectMcpServer } from "./detector.js"
 export {
 	generateDeploymentFiles,
@@ -15,6 +17,9 @@ export {
 	writeGeneratedFiles,
 } from "./generator.js"
 export * from "./types.js"
+
+// MCP Server exports
+export { default as createServer, configSchema } from "./server.js"
 
 import { detectMcpServer } from "./detector.js"
 import {
