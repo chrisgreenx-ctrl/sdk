@@ -4,6 +4,8 @@ Deploy local MCP (Model Context Protocol) servers to Smithery as remote SHTTP (S
 
 This tool automatically detects your MCP server type (TypeScript, Python, or container-based) and generates the necessary configuration files for Smithery deployment.
 
+**Available as both a CLI tool and an MCP server!**
+
 ## Features
 
 - **Automatic Detection**: Detects TypeScript, Python, Go, Rust, and other MCP server types
@@ -11,6 +13,7 @@ This tool automatically detects your MCP server type (TypeScript, Python, or con
 - **Dockerfile Generation**: Creates optimized Dockerfiles for container deployments
 - **Config Schema Extraction**: Extracts configuration schemas from your code
 - **Validation**: Validates your deployment configuration before deploying
+- **MCP Server**: Use this tool via AI assistants that support MCP
 
 ## Installation
 
@@ -90,6 +93,92 @@ Get detailed instructions for transforming your server:
 
 ```bash
 smithery-deploy guide ./my-mcp-server
+```
+
+## MCP Server Mode
+
+This tool is also available as an MCP server, allowing AI assistants to help you deploy your MCP servers.
+
+### Running as MCP Server
+
+```bash
+# Development mode with hot reload
+npm run dev
+
+# Production mode
+npm run serve
+
+# Or directly
+node dist/main.js
+```
+
+The server runs on port 8081 by default (configurable via `PORT` environment variable).
+
+### Configuration
+
+The MCP server accepts the following configuration via URL query parameters:
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `workingDirectory` | string | Current directory | Base directory for resolving paths |
+| `allowWrite` | boolean | `false` | Enable file writing (required for `init` tool) |
+
+Example: `http://localhost:8081/mcp?workingDirectory=/path/to/project&allowWrite=true`
+
+### Available Tools
+
+| Tool | Description |
+|------|-------------|
+| `detect` | Analyze a directory to detect MCP server type |
+| `generate_config` | Generate deployment files without writing to disk |
+| `init` | Write deployment files to disk (requires `allowWrite=true`) |
+| `validate` | Check if server is ready for deployment |
+| `guide` | Get transformation guide for the server |
+| `list_files` | List project files with glob patterns |
+| `read_file` | Read file contents |
+
+### Available Resources
+
+| Resource | URI | Description |
+|----------|-----|-------------|
+| smithery.yaml Template | `template://smithery.yaml` | Configuration reference |
+| Dockerfile Templates | `template://dockerfile` | Templates for different languages |
+
+### Available Prompts
+
+| Prompt | Description |
+|--------|-------------|
+| `deploy_server` | Step-by-step workflow to deploy an MCP server |
+| `convert_server` | Convert existing server to Smithery format |
+
+### Using with Claude Desktop
+
+Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "smithery-deploy": {
+      "command": "node",
+      "args": ["/path/to/sdk/tools/smithery-deploy/dist/main.js"],
+      "env": {
+        "PORT": "8082"
+      }
+    }
+  }
+}
+```
+
+Or connect via SHTTP:
+
+```json
+{
+  "mcpServers": {
+    "smithery-deploy": {
+      "url": "http://localhost:8081/mcp?workingDirectory=/your/project&allowWrite=true"
+    }
+  }
+}
 ```
 
 ## Supported Server Types
