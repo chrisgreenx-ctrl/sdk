@@ -38,14 +38,6 @@ export const configSchema = z.object({
 		.boolean()
 		.default(false)
 		.describe("Allow writing files to disk (required for init/convert commands)"),
-	githubToken: z
-		.string()
-		.optional()
-		.describe("GitHub personal access token for git operations (required for deploy_from_git)"),
-	smitheryApiKey: z
-		.string()
-		.optional()
-		.describe("Smithery API key for deployment operations"),
 })
 
 export type Config = z.infer<typeof configSchema>
@@ -721,8 +713,11 @@ export default function createServer({
 			createIfNotExists,
 			force,
 		}) => {
+			// Get GitHub token from environment variable
+			const githubToken = process.env.GITHUB_TOKEN
+
 			// Check for GitHub token
-			if (!config.githubToken) {
+			if (!githubToken) {
 				return {
 					content: [
 						{
@@ -731,7 +726,7 @@ export default function createServer({
 								{
 									success: false,
 									error:
-										"GitHub token is required. Set githubToken in the server configuration.",
+										"GitHub token is required. Set the GITHUB_TOKEN environment variable.",
 									hint: "You can get a token from https://github.com/settings/tokens with 'repo' scope.",
 								},
 								null,
@@ -747,7 +742,7 @@ export default function createServer({
 
 			try {
 				// Step 1: Validate GitHub token
-				const tokenValidation = await validateGitHubToken(config.githubToken)
+				const tokenValidation = await validateGitHubToken(githubToken)
 				if (!tokenValidation.valid) {
 					return {
 						content: [
@@ -806,7 +801,7 @@ export default function createServer({
 				const repoExists = await checkRepoExists(
 					targetOwner,
 					targetRepo,
-					config.githubToken
+					githubToken
 				)
 
 				if (!repoExists) {
@@ -814,7 +809,7 @@ export default function createServer({
 						const createResult = await createGitHubRepo(
 							targetOwner,
 							targetRepo,
-							config.githubToken,
+							githubToken,
 							{
 								description: `MCP server: ${detection.details.serverName || "Deployed via Smithery"}`,
 							}
@@ -860,7 +855,7 @@ export default function createServer({
 
 				// Step 7: Push to GitHub
 				const pushResult = await pushToGitHub(tempDir, {
-					githubToken: config.githubToken,
+					githubToken,
 					targetOwner,
 					targetRepo,
 					targetBranch: targetBranch || "main",
