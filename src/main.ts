@@ -7,11 +7,37 @@
  */
 
 import { createStatelessServer } from "@smithery/sdk"
+import express from "express"
+import cors from "cors"
 import createServer, { configSchema } from "./server.js"
 
+// Initialize Express app manually to apply middleware before routes
+const app = express()
+
+// Configure CORS
+app.use(
+	cors({
+		origin: (origin, callback) => {
+			// Allow all origins by reflecting the request origin
+			// This is required to support credentials: true with "wildcard-like" behavior
+			callback(null, true)
+		},
+		credentials: true,
+		methods: ["GET", "POST", "OPTIONS", "HEAD"],
+		allowedHeaders: [
+			"Content-Type",
+			"Authorization",
+			"mcp-protocol-version",
+			"mcp-session-id",
+		],
+	})
+)
+
 // Create and start the stateless MCP server
-const { app } = createStatelessServer(createServer, {
+// Pass the existing app instance so createStatelessServer adds its routes after our middleware
+createStatelessServer(createServer, {
 	schema: configSchema,
+	app,
 })
 
 // Listen on the PORT environment variable (required for Smithery deployment)
