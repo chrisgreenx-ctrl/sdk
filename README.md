@@ -1,5 +1,7 @@
 # Smithery Deploy Tool
 
+[![smithery badge](https://smithery.ai/badge/chris/sdk)](https://smithery.ai/server/chris/sdk)
+
 Deploy local MCP (Model Context Protocol) servers to Smithery as remote SHTTP (Streamable HTTP) servers.
 
 This tool automatically detects your MCP server type (TypeScript, Python, or container-based) and generates the necessary configuration files for Smithery deployment.
