@@ -16,6 +16,15 @@ import {
 	writeGeneratedFiles,
 } from "./generator.js"
 import type { RuntimeType } from "./types.js"
+import {
+	cloneRepository,
+	checkRepoExists,
+	createGitHubRepo,
+	pushToGitHub,
+	cleanupTempDir,
+	validateGitHubToken,
+	parseGitUrl,
+} from "./git-deploy.js"
 
 /**
  * Configuration schema for the MCP server
@@ -29,6 +38,14 @@ export const configSchema = z.object({
 		.boolean()
 		.default(false)
 		.describe("Allow writing files to disk (required for init/convert commands)"),
+	githubToken: z
+		.string()
+		.optional()
+		.describe("GitHub personal access token for git operations (required for deploy_from_git)"),
+	smitheryApiKey: z
+		.string()
+		.optional()
+		.describe("Smithery API key for deployment operations"),
 })
 
 export type Config = z.infer<typeof configSchema>
@@ -650,6 +667,281 @@ export default function createServer({
 						},
 					],
 					isError: true,
+				}
+			}
+		}
+	)
+
+	// Tool: deploy_from_git
+	server.registerTool(
+		"deploy_from_git",
+		{
+			title: "Deploy from Git Repository",
+			description:
+				"Clone a git repository, generate Smithery deployment files, and push to GitHub for automatic deployment via Smithery's GitHub App. Requires githubToken in server config.",
+			inputSchema: {
+				sourceRepoUrl: z
+					.string()
+					.describe("The git repository URL to clone (e.g., https://github.com/user/repo)"),
+				sourceBranch: z
+					.string()
+					.optional()
+					.describe("Branch to clone from source (default: main or master)"),
+				targetOwner: z
+					.string()
+					.describe("GitHub owner (username or org) for the target repository"),
+				targetRepo: z
+					.string()
+					.describe("Target repository name to push to"),
+				targetBranch: z
+					.string()
+					.default("main")
+					.describe("Target branch to push to"),
+				runtime: z
+					.enum(["typescript", "python", "container"])
+					.optional()
+					.describe("Force a specific runtime type (auto-detected if not specified)"),
+				createIfNotExists: z
+					.boolean()
+					.default(true)
+					.describe("Create the target repository if it doesn't exist"),
+				force: z
+					.boolean()
+					.default(false)
+					.describe("Overwrite existing deployment files"),
+			},
+		},
+		async ({
+			sourceRepoUrl,
+			sourceBranch,
+			targetOwner,
+			targetRepo,
+			targetBranch,
+			runtime,
+			createIfNotExists,
+			force,
+		}) => {
+			// Check for GitHub token
+			if (!config.githubToken) {
+				return {
+					content: [
+						{
+							type: "text",
+							text: JSON.stringify(
+								{
+									success: false,
+									error:
+										"GitHub token is required. Set githubToken in the server configuration.",
+									hint: "You can get a token from https://github.com/settings/tokens with 'repo' scope.",
+								},
+								null,
+								2
+							),
+						},
+					],
+					isError: true,
+				}
+			}
+
+			let tempDir: string | undefined
+
+			try {
+				// Step 1: Validate GitHub token
+				const tokenValidation = await validateGitHubToken(config.githubToken)
+				if (!tokenValidation.valid) {
+					return {
+						content: [
+							{
+								type: "text",
+								text: JSON.stringify(
+									{
+										success: false,
+										error: `Invalid GitHub token: ${tokenValidation.error}`,
+									},
+									null,
+									2
+								),
+							},
+						],
+						isError: true,
+					}
+				}
+
+				// Step 2: Clone the source repository
+				const cloneResult = await cloneRepository(sourceRepoUrl, sourceBranch)
+				tempDir = cloneResult.tempDir
+
+				// Step 3: Detect MCP server type
+				const detection = await detectMcpServer(tempDir)
+
+				if (runtime) {
+					detection.runtime = runtime as RuntimeType
+				}
+
+				// Step 4: Generate deployment files
+				const files = generateDeploymentFiles(detection, {
+					target: "remote",
+					overwrite: force,
+				})
+
+				// Step 5: Write generated files to the cloned repo
+				const filesGenerated: string[] = []
+				const filesSkipped: string[] = []
+
+				for (const [filename, content] of Object.entries(files)) {
+					if (!content) continue
+
+					const filePath = path.join(tempDir, filename)
+					const exists = fs.existsSync(filePath)
+
+					if (exists && !force) {
+						filesSkipped.push(filename)
+					} else {
+						fs.writeFileSync(filePath, content, "utf-8")
+						filesGenerated.push(filename)
+					}
+				}
+
+				// Step 6: Check if target repo exists
+				const repoExists = await checkRepoExists(
+					targetOwner,
+					targetRepo,
+					config.githubToken
+				)
+
+				if (!repoExists) {
+					if (createIfNotExists) {
+						const createResult = await createGitHubRepo(
+							targetOwner,
+							targetRepo,
+							config.githubToken,
+							{
+								description: `MCP server: ${detection.details.serverName || "Deployed via Smithery"}`,
+							}
+						)
+
+						if (!createResult.success) {
+							return {
+								content: [
+									{
+										type: "text",
+										text: JSON.stringify(
+											{
+												success: false,
+												error: `Failed to create repository: ${createResult.error}`,
+											},
+											null,
+											2
+										),
+									},
+								],
+								isError: true,
+							}
+						}
+					} else {
+						return {
+							content: [
+								{
+									type: "text",
+									text: JSON.stringify(
+										{
+											success: false,
+											error: `Repository ${targetOwner}/${targetRepo} does not exist and createIfNotExists is false`,
+										},
+										null,
+										2
+									),
+								},
+							],
+							isError: true,
+						}
+					}
+				}
+
+				// Step 7: Push to GitHub
+				const pushResult = await pushToGitHub(tempDir, {
+					githubToken: config.githubToken,
+					targetOwner,
+					targetRepo,
+					targetBranch: targetBranch || "main",
+					commitMessage: "Add Smithery deployment configuration",
+				})
+
+				if (!pushResult.success) {
+					return {
+						content: [
+							{
+								type: "text",
+								text: JSON.stringify(
+									{
+										success: false,
+										error: `Failed to push: ${pushResult.error}`,
+									},
+									null,
+									2
+								),
+							},
+						],
+						isError: true,
+					}
+				}
+
+				// Step 8: Return success with deployment instructions
+				const repoUrl = `https://github.com/${targetOwner}/${targetRepo}`
+				const deployUrl = `https://smithery.ai/new`
+
+				return {
+					content: [
+						{
+							type: "text",
+							text: JSON.stringify(
+								{
+									success: true,
+									clonedFrom: sourceRepoUrl,
+									pushedTo: repoUrl,
+									detectedRuntime: detection.runtime,
+									confidence: detection.confidence,
+									filesGenerated,
+									filesSkipped,
+									nextSteps: [
+										`Repository created/updated at ${repoUrl}`,
+										`Install Smithery GitHub App: https://github.com/apps/smithery-ai`,
+										`Deploy at: ${deployUrl}`,
+										"Connect your repository and Smithery will automatically deploy",
+									],
+									deployment: {
+										githubAppUrl: "https://github.com/apps/smithery-ai",
+										deployUrl,
+										repositoryUrl: repoUrl,
+									},
+								},
+								null,
+								2
+							),
+						},
+					],
+				}
+			} catch (error) {
+				return {
+					content: [
+						{
+							type: "text",
+							text: JSON.stringify(
+								{
+									success: false,
+									error: `Deployment failed: ${(error as Error).message}`,
+								},
+								null,
+								2
+							),
+						},
+					],
+					isError: true,
+				}
+			} finally {
+				// Clean up temp directory
+				if (tempDir) {
+					cleanupTempDir(tempDir)
 				}
 			}
 		}

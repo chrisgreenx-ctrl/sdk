@@ -82,3 +82,33 @@ export interface GeneratedFiles {
 	Dockerfile?: string
 	".dockerignore"?: string
 }
+
+export interface GitDeployOptions {
+	/** The source git repository URL to clone */
+	sourceRepoUrl: string
+	/** Branch to clone from source (default: main or master) */
+	sourceBranch?: string
+	/** GitHub personal access token for authentication */
+	githubToken: string
+	/** Target GitHub owner (username or org) */
+	targetOwner: string
+	/** Target repository name */
+	targetRepo: string
+	/** Target branch to push to (default: main) */
+	targetBranch?: string
+	/** Whether to create a new repo if it doesn't exist */
+	createIfNotExists?: boolean
+	/** Whether to force overwrite existing files */
+	force?: boolean
+}
+
+export interface GitDeployResult {
+	success: boolean
+	tempDir?: string
+	clonedFrom: string
+	pushedTo: string
+	filesGenerated: string[]
+	filesSkipped: string[]
+	deploymentUrl: string
+	error?: string
+}
