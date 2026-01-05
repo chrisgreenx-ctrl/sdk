@@ -16,6 +16,16 @@ export {
 	generateTransformationGuide,
 	writeGeneratedFiles,
 } from "./generator.js"
+export {
+	cloneRepository,
+	checkRepoExists,
+	createGitHubRepo,
+	pushToGitHub,
+	cleanupTempDir,
+	deployFromGit,
+	validateGitHubToken,
+	parseGitUrl,
+} from "./git-deploy.js"
 export * from "./types.js"
 
 // MCP Server exports
