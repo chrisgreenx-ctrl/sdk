@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: smithery-deploy-tool
+    runtime: docker
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        sync: false

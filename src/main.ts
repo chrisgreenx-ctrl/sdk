@@ -31,13 +31,18 @@ app.use(cors({
   ]
 }));
 
-// 3. Pass the configured app to the SDK
+// 3. Add health check endpoint
+app.get('/health', (req, res) => {
+  res.status(200).send('OK');
+});
+
+// 4. Pass the configured app to the SDK
 createStatelessServer(createServer, {
 	schema: configSchema,
 	app: app
 })
 
-// 4. Listen on the port
+// 5. Listen on the port
 const port = Number(process.env.PORT) || 8081
 app.listen(port, () => {
 	console.log(`Smithery Deploy MCP Server running on port ${port}`)
