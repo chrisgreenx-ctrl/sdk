@@ -763,7 +763,7 @@ export default function createServer({
 				}
 
 				// Step 2: Clone the source repository
-				const cloneResult = await cloneRepository(sourceRepoUrl, sourceBranch)
+				const cloneResult = await cloneRepository(sourceRepoUrl, sourceBranch, githubToken)
 				tempDir = cloneResult.tempDir
 
 				// Step 3: Detect MCP server type
