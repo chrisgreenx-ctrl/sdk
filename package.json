@@ -29,7 +29,7 @@
 		"commander": "^12.1.0",
 		"cors": "^2.8.5",
 		"enquirer": "^2.4.1",
-		"express": "^5.2.1",
+		"express": "^4.19.2",
 		"glob": "^11.0.0",
 		"yaml": "^2.4.5",
 		"zod": "^4"
@@ -37,7 +37,7 @@
 	"devDependencies": {
 		"@smithery/cli": "^1.6.7",
 		"@types/cors": "^2.8.19",
-		"@types/express": "^5.0.6",
+		"@types/express": "^4.17.21",
 		"@types/node": "^22.0.0",
 		"tsx": "^4.19.0",
 		"typescript": "^5.5.0"
